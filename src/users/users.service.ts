@@ -26,7 +26,7 @@ export class UsersService {
       });
       return await this.usersRepository.save(user);
     } catch (error) {
-      if (error.code === 'ER_DUP_ENTRY') {
+      if ((error as any).code === 'ER_DUP_ENTRY') {
         throw new ConflictException('E-mail já cadastrado');
       }
       throw error;
@@ -43,6 +43,10 @@ export class UsersService {
     return user;
   }
 
+  async findByEmail(email: string): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { email } });
+  }
+
   async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id);
 
@@ -54,7 +58,7 @@ export class UsersService {
       const updated = Object.assign(user, updateUserDto);
       return await this.usersRepository.save(updated);
     } catch (error) {
-      if (error.code === 'ER_DUP_ENTRY') {
+      if ((error as any).code === 'ER_DUP_ENTRY') {
         throw new ConflictException('E-mail já cadastrado');
       }
       throw error;
