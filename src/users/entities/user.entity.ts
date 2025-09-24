@@ -1,11 +1,7 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-} from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 import { Exclude } from 'class-transformer';
 
-@Entity()
+@Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
@@ -17,11 +13,13 @@ export class User {
   email: string;
 
   @Column()
-  @Exclude() // senha nunca vai pro retorno
+  @Exclude()
   password: string;
 
   @Column({ type: 'text', nullable: true })
   @Exclude()
   refreshToken: string | null;
 
+  @Column({ default: 'user' })
+  role: 'user' | 'admin'; 
 }
