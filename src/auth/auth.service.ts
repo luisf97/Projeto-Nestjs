@@ -10,29 +10,56 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  // Valida credenciais; retorna user sem password se válido, null se inválido
-  async validateUser(email: string, plainPassword: string) {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) return null;
+  private async generateTokens(userId: number, email: string) {
+    const payload = { sub: userId, email };
 
-    const isMatch = await bcrypt.compare(plainPassword, user.password);
-    if (!isMatch) return null;
+    const access_token = this.jwtService.sign(payload, {
+      secret: process.env.JWT_SECRET || 'CHANGE_THIS_SECRET',
+      expiresIn: '15m', // expira rápido
+    });
 
-    // Remover password do retorno (Users entity tem @Exclude, mas aqui retornamos um objeto simples)
-    // vamos devolver um objeto com dados públicos
-    // note: user é uma entidade — podemos criar um objeto com as props que queremos expor
-    const { password, ...result } = user as any;
-    return result;
+    const refresh_token = this.jwtService.sign(payload, {
+      secret: process.env.JWT_REFRESH_SECRET || 'CHANGE_THIS_REFRESH_SECRET',
+      expiresIn: '7d', // dura 7 dias
+    });
+
+    return { access_token, refresh_token };
   }
 
   async login(email: string, password: string) {
-    const valid = await this.validateUser(email, password);
-    if (!valid) {
-      throw new UnauthorizedException('Credenciais inválidas');
+    const user = await this.usersService.findByEmail(email);
+    if (!user) throw new UnauthorizedException('Credenciais inválidas');
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) throw new UnauthorizedException('Credenciais inválidas');
+
+    const tokens = await this.generateTokens(user.id, user.email);
+
+    // salva refresh token (hash) no banco
+    const hashedRefresh = await bcrypt.hash(tokens.refresh_token, 10);
+    await this.usersService.updateRefreshToken(user.id, hashedRefresh);
+
+    return tokens;
+  }
+
+  async refresh(userId: number, refreshToken: string) {
+    const user = await this.usersService.findOne(userId);
+    if (!user || !user.refreshToken) {
+      throw new UnauthorizedException('Refresh token inválido');
     }
-    const payload = { sub: (valid as any).id, email: (valid as any).email };
-    return {
-      access_token: this.jwtService.sign(payload),
-    };
+
+    const isValid = await bcrypt.compare(refreshToken, user.refreshToken);
+    if (!isValid) throw new UnauthorizedException('Refresh token inválido');
+
+    const tokens = await this.generateTokens(user.id, user.email);
+
+    const hashedRefresh = await bcrypt.hash(tokens.refresh_token, 10);
+    await this.usersService.updateRefreshToken(user.id, hashedRefresh);
+
+    return tokens;
+  }
+
+  async logout(userId: number) {
+    await this.usersService.updateRefreshToken(userId, null);
   }
 }

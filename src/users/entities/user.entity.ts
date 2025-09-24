@@ -1,18 +1,27 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Exclude } from 'class-transformer';
 
-@Entity('users')
+@Entity()
 export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column({ length: 50 })
   name: string;
 
   @Column({ unique: true })
   email: string;
 
   @Column()
-  @Exclude() // <- isso esconde o campo quando transformamos em objeto
+  @Exclude() // senha nunca vai pro retorno
   password: string;
+
+  @Column({ type: 'text', nullable: true })
+  @Exclude()
+  refreshToken: string | null;
+
 }
